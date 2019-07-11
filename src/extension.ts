@@ -659,13 +659,17 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(disposable);
-
-    if (vscode.extensions.getExtension('dart-code.dart-code') !== undefined) {
-        const statusButtons: vscode.StatusBarItem[] = createButtons(buttons);
-        watchEditors(statusButtons);
-        updateStatusbar(vscode.window.activeTextEditor, statusButtons);
-    }
+    
+    setupStatusbar(vscode.extensions.getExtension('dart-code.dart-code'));
 }
+
+export const setupStatusbar = (dartExt: vscode.Extension<any> | undefined) => {
+  if (dartExt !== undefined) {
+    const statusButtons: vscode.StatusBarItem[] = createButtons(buttons);
+    watchEditors(statusButtons);
+    updateStatusbar(vscode.window.activeTextEditor, statusButtons);
+  }
+};
 
 export function deactivate() {
 }

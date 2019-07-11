@@ -1,45 +1,42 @@
-//
-// Note: This example test is leveraging the Mocha test framework.
-// Please refer to their documentation on https://mochajs.org/ for help.
-//
-
 import * as assert from 'assert';
-
+import * as sinon from 'sinon';
 import * as vscode from 'vscode';
+import { afterEach, beforeEach } from 'mocha';
+import * as createButtons from '../utils/create_buttons';
 import * as stylizer from '../extension';
+import * as updateStatusbar from '../utils/update_statusbar';
+import * as watchEditors from '../utils/watch_editors';
 
-// Defines a Mocha test suite to group tests of similar kind together
-suite("Extension Tests", function() {
+suite('Extension Tests', function() {
+  const newDoc = async () => {
+    let doc = await vscode.workspace.openTextDocument({ language: 'dart' });
+    await vscode.window.showTextDocument(doc);
+    return doc;
+  };
 
-    const newDoc = async () => {
-        let doc = await vscode.workspace.openTextDocument({ language: 'dart' });
-        await vscode.window.showTextDocument(doc);
-        return doc;
-    };
+  const newEditor = async (doc: vscode.TextDocument, source: string) => {
+    const editor = vscode.window.activeTextEditor;
+    await editor!.edit((editBuilder: vscode.TextEditorEdit) => {
+      editBuilder.insert(doc.positionAt(0), source);
+    });
+    assert.notEqual(editor, null);
+    return editor!;
+  };
 
-    const newEditor = async (doc: vscode.TextDocument, source: string) => {
-        const editor = vscode.window.activeTextEditor;
-        await editor!.edit((editBuilder: vscode.TextEditorEdit) => {
-            editBuilder.insert(doc.positionAt(0), source);
-        });
-        assert.notEqual(editor, null);
-        return editor!;
-    };
-
-    test("Classes are found", async () => {
-        var source = `// test.dart
+  test('Classes are found', async () => {
+    var source = `// test.dart
 class myClass extends Widget {
 
 }`;
-        let doc = await newDoc();
-        let editor = await newEditor(doc, source);
-        let got = await stylizer.getClasses(editor!);
-        assert.equal(got.length, 1);
-        assert.equal(got[0].lines.length, 3);
-    });
+    let doc = await newDoc();
+    let editor = await newEditor(doc, source);
+    let got = await stylizer.getClasses(editor!);
+    assert.equal(got.length, 1);
+    assert.equal(got[0].lines.length, 3);
+  });
 
-    test("Named constructors are kept intact", async () => {
-        var source = `class AnimationController extends Animation<double>
+  test('Named constructors are kept intact', async () => {
+    var source = `class AnimationController extends Animation<double>
 with AnimationEagerListenerMixin, AnimationLocalListenersMixin, AnimationLocalStatusListenersMixin {
     AnimationController.unbounded({
     double value = 0.0,
@@ -56,75 +53,77 @@ with AnimationEagerListenerMixin, AnimationLocalListenersMixin, AnimationLocalSt
     _internalSetValue(value);
     }
 }`;
-        let doc = await newDoc();
-        let editor = await newEditor(doc, source);
-        let got = await stylizer.getClasses(editor!);
-        assert.equal(got.length, 1);
-        assert.equal(got[0].lines.length, 16);
+    let doc = await newDoc();
+    let editor = await newEditor(doc, source);
+    let got = await stylizer.getClasses(editor!);
+    assert.equal(got.length, 1);
+    assert.equal(got[0].lines.length, 16);
 
-        let want = [
-            stylizer.EntityType.Unknown,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.NamedConstructor,
-            stylizer.EntityType.BlankLine,
-        ];
+    let want = [
+      stylizer.EntityType.Unknown,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.NamedConstructor,
+      stylizer.EntityType.BlankLine,
+    ];
 
-        for (let i = 0; i < got[0].lines.length; i++) {
-            let line = got[0].lines[i];
-            assert.equal(
-                stylizer.EntityType[line.entityType],
-                stylizer.EntityType[want[i]],
-                'line #' + i.toString() + ': ' + line.line);
-        }
-    });
+    for (let i = 0; i < got[0].lines.length; i++) {
+      let line = got[0].lines[i];
+      assert.equal(
+        stylizer.EntityType[line.entityType],
+        stylizer.EntityType[want[i]],
+        'line #' + i.toString() + ': ' + line.line
+      );
+    }
+  });
 
-    test("Private constructors are kept intact", async () => {
-        var source = `class _InterpolationSimulation extends Simulation {
+  test('Private constructors are kept intact', async () => {
+    var source = `class _InterpolationSimulation extends Simulation {
   _InterpolationSimulation(this._begin, this._end, Duration duration, this._curve, double scale)
     : assert(_begin != null),
       assert(_end != null),
       assert(duration != null && duration.inMicroseconds > 0),
       _durationInSeconds = (duration.inMicroseconds * scale) / Duration.microsecondsPerSecond;
 }`;
-        let doc = await newDoc();
-        let editor = await newEditor(doc, source);
-        let got = await stylizer.getClasses(editor!);
-        assert.equal(got.length, 1);
-        assert.equal(got[0].lines.length, 7);
+    let doc = await newDoc();
+    let editor = await newEditor(doc, source);
+    let got = await stylizer.getClasses(editor!);
+    assert.equal(got.length, 1);
+    assert.equal(got[0].lines.length, 7);
 
-        let want = [
-            stylizer.EntityType.Unknown,
-            stylizer.EntityType.MainConstructor,
-            stylizer.EntityType.MainConstructor,
-            stylizer.EntityType.MainConstructor,
-            stylizer.EntityType.MainConstructor,
-            stylizer.EntityType.MainConstructor,
-            stylizer.EntityType.BlankLine,
-        ];
+    let want = [
+      stylizer.EntityType.Unknown,
+      stylizer.EntityType.MainConstructor,
+      stylizer.EntityType.MainConstructor,
+      stylizer.EntityType.MainConstructor,
+      stylizer.EntityType.MainConstructor,
+      stylizer.EntityType.MainConstructor,
+      stylizer.EntityType.BlankLine,
+    ];
 
-        for (let i = 0; i < got[0].lines.length; i++) {
-            let line = got[0].lines[i];
-            assert.equal(
-                stylizer.EntityType[line.entityType],
-                stylizer.EntityType[want[i]],
-                'line #' + i.toString() + ': ' + line.line);
-        }
-    });
+    for (let i = 0; i < got[0].lines.length; i++) {
+      let line = got[0].lines[i];
+      assert.equal(
+        stylizer.EntityType[line.entityType],
+        stylizer.EntityType[want[i]],
+        'line #' + i.toString() + ': ' + line.line
+      );
+    }
+  });
 
-    test("Handle overridden getters with bodies", async () => {
-        var source = `class CurvedAnimation extends Animation<double>
+  test('Handle overridden getters with bodies', async () => {
+    var source = `class CurvedAnimation extends Animation<double>
     with AnimationWithParentMixin<double> {
   @override
   double get value {
@@ -157,54 +156,89 @@ with AnimationEagerListenerMixin, AnimationLocalListenersMixin, AnimationLocalSt
     return '$parent\u27A9$curve/$reverseCurve\u2092\u2099';
   }
 }`;
-        let doc = await newDoc();
-        let editor = await newEditor(doc, source);
-        let got = await stylizer.getClasses(editor!);
-        assert.equal(got.length, 1);
-        assert.equal(got[0].lines.length, 33);
+    let doc = await newDoc();
+    let editor = await newEditor(doc, source);
+    let got = await stylizer.getClasses(editor!);
+    assert.equal(got.length, 1);
+    assert.equal(got[0].lines.length, 33);
 
-        let want = [
-            stylizer.EntityType.Unknown,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.BlankLine,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.OverrideMethod,
-            stylizer.EntityType.BlankLine,
-        ];
+    let want = [
+      stylizer.EntityType.Unknown,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.BlankLine,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.OverrideMethod,
+      stylizer.EntityType.BlankLine,
+    ];
 
-        for (let i = 0; i < got[0].lines.length; i++) {
-            let line = got[0].lines[i];
-            assert.equal(
-                stylizer.EntityType[line.entityType],
-                stylizer.EntityType[want[i]],
-                'line #' + i.toString() + ': ' + line.line);
-        }
+    for (let i = 0; i < got[0].lines.length; i++) {
+      let line = got[0].lines[i];
+      assert.equal(
+        stylizer.EntityType[line.entityType],
+        stylizer.EntityType[want[i]],
+        'line #' + i.toString() + ': ' + line.line
+      );
+    }
+  });
+});
+
+suite.only('Activate()', function() {
+  suite('setupStatusbar()', function() {
+    let spiedCreateButtons: sinon.SinonSpy;
+    let spiedWatchEditors: sinon.SinonSpy;
+    let spiedUpdateStatusbar: sinon.SinonSpy;
+
+    beforeEach(function() {
+      spiedCreateButtons = sinon.spy(createButtons, 'default');
+      spiedWatchEditors = sinon.spy(watchEditors, 'default');
+      spiedUpdateStatusbar = sinon.spy(updateStatusbar, 'default');
     });
+
+    afterEach(function() {
+      spiedCreateButtons.restore();
+      spiedWatchEditors.restore();
+      spiedUpdateStatusbar.restore();
+    });
+
+    test('Does not setup if Dart ext is undefined', function() {
+      stylizer.setupStatusbar(undefined);
+      assert(spiedCreateButtons.notCalled);
+      assert(spiedWatchEditors.notCalled);
+      assert(spiedUpdateStatusbar.notCalled);
+    });
+
+    test('Sets up correctly if Dart ext exists', function() {
+      stylizer.setupStatusbar({} as vscode.Extension<any>);
+      assert(spiedCreateButtons.called);
+      assert(spiedWatchEditors.called);
+      assert(spiedUpdateStatusbar.called);
+    });
+  });
 });
