@@ -5,6 +5,7 @@ import buttons from './buttons/buttons';
 import createButtons from './utils/create_buttons';
 import updateStatusbar from './utils/update_statusbar';
 import watchEditors from './utils/watch_editors';
+import flutterStylizerAll from './commands/flutter-stylizer-all';
 
 const commentRE = /^(.*?)\s*\/\/.*$/;
 
@@ -657,6 +658,8 @@ export function activate(context: vscode.ExtensionContext) {
 
         editor.selection = saveSelection;
     });
+    
+    vscode.commands.registerCommand('extension.flutterStylizerAll', flutterStylizerAll);
 
     context.subscriptions.push(disposable);
 
