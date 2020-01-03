@@ -18,6 +18,17 @@
   ],
   "main": "./out/extension",
   "contributes": {
+    "configuration": {
+        "type": "object",
+        "title": "Flutter Stylizer",
+        "properties": {
+            "flutter-stylizer.formatOnSave": {
+                "type": "boolean",
+                "default": false,
+                "description": "Run Flutter Stylizer on save"
+            }
+        }
+    },
     "commands": [
       {
         "command": "extension.flutterStylizer",

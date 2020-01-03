@@ -5,6 +5,7 @@ import buttons from './buttons/buttons';
 import createButtons from './utils/create_buttons';
 import updateStatusbar from './utils/update_statusbar';
 import watchEditors from './utils/watch_editors';
+import { watchSave } from './utils/watchSave';
 
 const commentRE = /^(.*?)\s*\/\/.*$/;
 
@@ -665,6 +666,9 @@ export function activate(context: vscode.ExtensionContext) {
         watchEditors(statusButtons);
         updateStatusbar(vscode.window.activeTextEditor, statusButtons);
     }
+    
+    const { formatOnSave }: vscode.WorkspaceConfiguration =  vscode.workspace.getConfiguration('flutter-stylizer');
+    watchSave(formatOnSave)
 }
 
 export function deactivate() {
